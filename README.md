@@ -1,7 +1,9 @@
+![GitHub Logo](/images/hive.png)
+
 # OpenRucheDLCB
 Github participatif du projet open ruche polytech sorbonne Ei-2i-4
 
-**Code depedencies :**
+**Arduino code depedencies :**
 
 * Arduino Low Power
 * Arduino SigFox for MKRFox1200
