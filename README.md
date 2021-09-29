@@ -1,4 +1,4 @@
-![GitHub Logo](/images/hive.png)
+![GitHub Logo](/Ressources/hive.png)
 
 # OpenRucheDLCB
 Github participatif du projet open ruche polytech sorbonne Ei-2i-4
