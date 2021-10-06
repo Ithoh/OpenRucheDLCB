@@ -13,8 +13,8 @@
 // Pin 15 can work but DHT must be disconnected during program upload.
 
 // Uncomment whatever type you're using!
-//#define DHTTYPE DHT11 // DHT 11
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+#define DHTTYPE DHT11 // DHT 11
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
 //#define DHTTYPE DHT21   // DHT 21 (AM2301)
 
 // Connect pin 1 (on the left) of the sensor to +5V
@@ -76,6 +76,7 @@ void setup()
 
 void envoi(SigfoxMessage message)
 {
+  SigFox.begin();
   SigFox.status();
   delay(1);
   SigFox.beginPacket();
@@ -86,7 +87,6 @@ void envoi(SigfoxMessage message)
 }
 void loop()
 {
-  delay(2000);
   // Reading temperature or humidity takes about 250 milliseconds!
   // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
   float h = dht.readHumidity();
@@ -108,8 +108,8 @@ void loop()
 
   msg.temp = int16_t(t * 100);
   msg.humidity = int16_t(h * 100);
-  //envoi(msg);
+  envoi(msg);
 
   // Wait a few seconds between measurements.
-  delay(5000);
+  delay(1000);
 }
