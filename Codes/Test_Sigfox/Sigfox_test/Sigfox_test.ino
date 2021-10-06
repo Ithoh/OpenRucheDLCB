@@ -58,7 +58,7 @@ void loop()
 {
   while(msg.Compteur != 10)
   {
-    senSigMsg();
+    sendSigMsg();
     msg.Compteur++;
     delay(60000);
   }
@@ -68,6 +68,7 @@ void sendSigMsg()
 {
   Serial.print("Valeur du compteur = ");
   Serial.println(msg.Compteur);
+  SigFox.begin();
   SigFox.beginPacket();
   SigFox.write((uint8_t *)&msg, sizeof(SigfoxMessage));
   Serial.print("Status: ");
