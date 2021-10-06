@@ -30,6 +30,12 @@ int pan_brut;
  *                        _____
  *                         ---
  *                          ¯
+ * pour le capteur de la batterie
+ * Avec R1 = 180 KΩ
+ * Avec R2 = 220 KΩ 
+ * pour le capteur du panneau
+ * Avec R1 = XX KΩ
+ * Avec R2 = XX KΩ
  */
 void setup() 
 {
