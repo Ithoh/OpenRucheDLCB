@@ -195,7 +195,7 @@ void loop()
     Serial.print("Humidity2 :");
     Serial.println(msg.humidity_ext);
     
-    //read_weight();
+    read_weight();
     last_weight = msg.weight;
     Serial.print("Poids :");
     Serial.println(msg.weight);

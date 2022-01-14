@@ -1,6 +1,9 @@
+//#define DEBUG
+#define DEBUGSIGFOX
+  
   #include "ArduinoLowPower.h"
 //LED
-  #define LED_PIN 5
+#define LED_PIN 5
 //ADC init
   #define ADC_resolution 10
   static float rap_V_ADC = 3.2;  //rapport for avoir la tension en mV.
@@ -8,18 +11,24 @@
   float bat_tension;
   
 //Voltage reading init
+  //battery reading
   #define battery_in A6
-  #define rap_pan 0.6   // R2/R1+R2
   #define R2 100.4
   #define R1 33.09
-  static float rap_bat = R2/(R1+R2); // R2/R1+R2
+  static float rap_bat = R2/(R1+R2);
   float bat_reel;
   typedef struct batStruct
   {
     float voltage;
     int8_t percent;
   }batCharge;
+  
   batCharge Battery[12];  
+  //Luminosity reading
+  #define V_LUM_IN A0
+  #define R3 56000
+
+  int lum_in=0;
 
 //Solar maximum intensity voltage is defined on 5.5V (including safety offset)
 /*
@@ -49,7 +58,7 @@
 #include <DallasTemperature.h>
 
 // Data wire is plugged into port 10 on the Arduino
-#define ONE_WIRE_BUS 10
+#define ONE_WIRE_BUS 14
 #define TEMPERATURE_PRECISION 10
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
@@ -62,14 +71,17 @@ DallasTemperature sensors(&oneWire);
 DeviceAddress Thermometer1, Thermometer2, Thermometer3;
 
 //Declaration for DHT sensors
-  #include "DHT.h"
-  #define DHTPIN 6
-  #define DHTPIN2 7
-  #define DHTTYPE DHT22
-  #define DHTTYPE2 DHT11 
-  
-  DHT dht(DHTPIN, DHTTYPE);
-  DHT dht_ext(DHTPIN2, DHTTYPE2);
+
+  #include <DHT.h>
+  #define DHTPIN 12
+  #define DHTPIN2 10 
+
+  #define DHTTYPE1 DHT11
+  #define DHTTYPE2 DHT22
+  DHT dht(DHTPIN,DHTTYPE1);
+  DHT dht_ext(DHTPIN2,DHTTYPE2);
+
+
 
 //Declaration for Sigfox module
   #include <SigFox.h>
@@ -100,8 +112,8 @@ DeviceAddress Thermometer1, Thermometer2, Thermometer3;
 
 //Declaration for HX711
   #include "HX711.h"
-  #define LOADCELL_DOUT_PIN  14
-  #define LOADCELL_SCK_PIN  13
+  #define LOADCELL_DOUT_PIN  7
+  #define LOADCELL_SCK_PIN  8
   
   HX711 scale;
 
@@ -115,9 +127,10 @@ DeviceAddress Thermometer1, Thermometer2, Thermometer3;
 void setup() 
 {
   //LED
-  pinMode(LED_PIN,OUTPUT);
-  digitalWrite(LED_PIN,HIGH);
-  Serial.begin(9600);
+    pinMode(LED_PIN,OUTPUT);
+    digitalWrite(LED_PIN,HIGH);
+    Serial.begin(9600);
+    
   //Sigfox Setup
     if (!SigFox.begin())
     {
@@ -126,10 +139,13 @@ void setup()
     delay(100); 
     SigFox.debug();
     SigFox.status();
-    delay(1); 
-
+    delay(1);
+     
+  //DHT
+    dht.begin();
+    dht_ext.begin();
+    
   //Voltage reading Setup
-  
     pinMode(battery_in, INPUT);
     Battery[0].percent = 0;
     Battery[0].voltage = 3;
@@ -155,40 +171,36 @@ void setup()
     Battery[10].voltage = 4.10;
     Battery[11].percent = 100;
     Battery[11].voltage = 4.20;
-
-  //HX711 Setup 
-    scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-    scale.set_scale(calibration_factor);
-    scale.set_offset(zero_factor); //Reset the scale to 0
-
-  //DHT Setup
-    dht.begin();
-    dht_ext.begin();
-    delay(100); 
-    
+    pinMode(LED_PIN,INPUT);
+    pinMode(V_LUM_IN,INPUT);
+ //HX711 Setup 
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  scale.set_scale(calibration_factor);
+  scale.set_offset(zero_factor); //Reset the scale to 0
   if (!sensors.getAddress(Thermometer1, 0)) Serial.println("Unable to find address for Device 0");
   if (!sensors.getAddress(Thermometer2, 1)) Serial.println("Unable to find address for Device 1");
   if (!sensors.getAddress(Thermometer3, 2)) Serial.println("Unable to find address for Device 2");
-
+  
   sensors.setResolution(Thermometer1, TEMPERATURE_PRECISION);
   sensors.setResolution(Thermometer2, TEMPERATURE_PRECISION);
   sensors.setResolution(Thermometer3, TEMPERATURE_PRECISION);
+  digitalWrite(LED_PIN,LOW);
 }
 
 //INFINITE LOOP
 void loop() 
 {
+  #ifndef DEBUG
+  
+    //Not Debugging
     digitalWrite(LED_PIN, HIGH);
-    msg.event = 0;
     
-    read_ds18B20();
-    
-    read_dht();
-    
-    read_weight();
-        
+    msg.event = 0;    
+    read_ds18B20();    
+    read_dht();    
+    read_weight();        
     read_voltage();
-
+    
     //Events
     if (msg.charge < 10)
     {
@@ -199,21 +211,95 @@ void loop()
       msg.event += 2;
     }
     sendSigfox(msg);
-    delay(2000);
-    digitalWrite(LED_PIN, LOW);
-    LowPower.sleep(620000);
+    
+    #ifdef DEBUG_SIGFOX
+      LowPower.sleep(5000);
+    #else
+      LowPower.sleep(617142);
+    #endif
+      
+    
+   #else
+    //Debugging
+    
+    msg.event = 0;
+    read_ds18B20();
+    Serial.print("DS1 :");
+    Serial.println((float)(msg.temp_DS1/2));
+    Serial.print("DS2 :");
+    Serial.println((float)(msg.temp_DS2/2));
+    Serial.print("DS3 :");
+    Serial.println((float)(msg.temp_DS3/2));
+    
+    read_dht();
+    //dht22
+    Serial.print("Temp_dht :");
+    Serial.println(msg.temp_dht);
+    Serial.print("Humidity :");
+    Serial.println(msg.humidity);
+    
+    //dht11
+    Serial.print("Temp_dht_ext :");
+    Serial.println(msg.temp_ext_dht);
+    Serial.print("Humidity_ext :");
+    Serial.println(msg.humidity_ext);
+    
+    read_weight();
+    last_weight = msg.weight;
+    Serial.print("Poids :");
+    Serial.println(msg.weight);
+    
+    read_voltage();
+    Serial.print("Tension :");
+    Serial.println(bat_reel/1000);
+    Serial.print("Charge :");
+    Serial.print(msg.charge);
+    Serial.println("%");
+
+    //Events
+    if (msg.charge < 10)
+    {
+      msg.event += 1;//bat low
+      Serial.println("Bat low");
+    }
+    if (msg.weight < 0.25 * last_weight)
+    {
+      msg.event += 2;
+      Serial.println("Vol de la ruche");  
+    }
+    Serial.println(msg.event);
+    delay(5000);
+   #endif
 }
 
 void read_ds18B20()
 {
   sensors.requestTemperatures();
   delay(100);
+  
+  #ifdef DEBUG
+    //Affichage des temperatures et adresses
+    Serial.print("Adresse DS18B20 1 :");
+    printAddress(Thermometer1);
+    Serial.print(" temp : ");
+    Serial.println(msg.temp_DS1 = (int)(sensors.getTempC(Thermometer1) * 2));
+    
+    Serial.print("Adresse DS18B20 2 :");
+    printAddress(Thermometer2);
+    Serial.print(" temp : ");
+    Serial.println(msg.temp_DS2 = (int)(sensors.getTempC(Thermometer2) * 2));
+    
+    Serial.print("Adresse DS18B20 3 :");
+    printAddress(Thermometer3);
+    Serial.print(" temp : ");
+    Serial.println(msg.temp_DS3 = (int)(sensors.getTempC(Thermometer3) * 2));
+  #else
+  
+  //Datas backup only
   msg.temp_DS1 = (int)(sensors.getTempC(Thermometer1) * 2);
   msg.temp_DS2 = (int)(sensors.getTempC(Thermometer2) * 2);
   msg.temp_DS3 = (int)(sensors.getTempC(Thermometer3) * 2);
-  Serial.println(msg.temp_DS1);
-  Serial.println(msg.temp_DS2);
-  Serial.println(msg.temp_DS3);
+  #endif
 }
 
 void read_dht()
@@ -224,28 +310,33 @@ void read_dht()
   // Check if any reads failed and exit early (to try again).
   if (isnan(h) || isnan(t))
   {
-    return;
+    Serial.println("Error reading DHT11");
   }
-  msg.temp_dht = int8_t(t * 2);
-  msg.humidity = int8_t(h);
-  
+  //else
+  {
+    msg.temp_dht = int8_t(t * 2);
+    msg.humidity = int8_t(h);
+  }
+  delay(1000);
   //reading DHT_EXT
   float h2 = dht_ext.readHumidity();
   float t2 = dht_ext.readTemperature();
   // Check if any reads failed and exit early (to try again).
   if (isnan(h2) || isnan(t2))
   {
-    return;
+    Serial.println("Error reading DHT22");
   }
-  msg.temp_ext_dht = int8_t(t2 * 2);
-  msg.humidity_ext = int8_t(h2);
-  // Wait a few seconds between measurements.
-  delay(1000);
+  //else
+  {
+    msg.temp_ext_dht = int8_t(t2 * 2);
+    msg.humidity_ext = int8_t(h2);
+  }
 }
 
 
 void sendSigfox(SigfoxMessage message)
 {
+  digitalWrite(LED_PIN,HIGH);
   //Sigfox send function
   if (!SigFox.begin())
   {
@@ -257,10 +348,13 @@ void sendSigfox(SigfoxMessage message)
   SigFox.write((uint8_t *)&message, sizeof(SigfoxMessage));
   SigFox.endPacket();
   SigFox.end();
+  digitalWrite(LED_PIN,LOW);
 }
 
 void read_weight()
 {
+  scale.power_up();
+
   //weight reading
   if (scale.wait_ready_timeout(1000)) {
     last_weight = msg.weight;
@@ -271,7 +365,7 @@ void read_weight()
   else {
   Serial.println("HX711 not found.");
   }
-  
+  scale.power_down();
 }
 
 void read_voltage()
@@ -282,10 +376,25 @@ void read_voltage()
   bat_reel=(bat_tension / rap_bat);
   for (int i =0 ; i < 12 ; i++)
   {
-    if ((bat_reel/1000) < Battery[i].voltage)
+    if ((bat_reel/1000.0) < Battery[i].voltage)
     {      
-       msg.charge = Battery[i-1].percent;
+       msg.charge = Battery[i].percent;
        break;
     }
   }
+  lum_in = analogRead(V_LUM_IN);
+  #ifdef DEBUG
+    Serial.print("Lum in :");
+    Serial.println(lum_in);
+  #endif
 }
+#ifdef DEBUG
+  void printAddress(DeviceAddress deviceAddress)
+  {
+    for (uint8_t i = 0; i < 8; i++)
+    {
+      if (deviceAddress[i] < 16) Serial.print("0");
+      Serial.print(deviceAddress[i], HEX);
+    }
+  }
+ #endif
