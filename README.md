@@ -13,5 +13,3 @@ Github participatif du projet open ruche polytech sorbonne Ei-2i-4
 * DallasTemperature
 * DHT Sensor library
 * OneWire
-
-Cal value for gauge = -21380
